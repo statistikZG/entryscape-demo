@@ -1,8 +1,9 @@
-def get_metadata(dataset_id, resource_id, fields, get_api_id = True):
+def get_metadata(catalog_url, dataset_id, resource_id, fields, get_api_id = True):
     """
     Fetches specified metadata fields for both the dataset and a distribution (resource_id).
     If a field value is a resource URI, parses that resource but only returns its label/name (not the URI).
     Args:
+        catalog_url (str): The base URL of the catalog (e.g. "https://zg-demo.entryscape.net/store/1")
         dataset_id (str): The dataset identifier (e.g. "510")
         resource_id (str): The distribution/resource identifier (e.g. "512")
         fields (list): List of metadata field names (e.g. ["modified", "description"])
@@ -17,7 +18,7 @@ def get_metadata(dataset_id, resource_id, fields, get_api_id = True):
     FOAF = Namespace("http://xmlns.com/foaf/0.1/")
     g = Graph()
     # Parse dataset RDF
-    dataset_url = f"https://data.zg.ch/store/1/metadata/{dataset_id}"
+    dataset_url = f"{catalog_url}/metadata/{dataset_id}"
     g.parse(dataset_url)
     # Parse all distribution RDFs
     distribution_uris = [
@@ -27,8 +28,8 @@ def get_metadata(dataset_id, resource_id, fields, get_api_id = True):
     for uri in distribution_uris:
         g.parse(uri.replace("/resource/", "/metadata/"))
     # Prepare URIs
-    dataset_ref = URIRef(f"https://data.zg.ch/store/1/resource/{dataset_id}")
-    dist_ref = URIRef(f"https://data.zg.ch/store/1/resource/{resource_id}")
+    dataset_ref = URIRef(f"{catalog_url}/resource/{dataset_id}")
+    dist_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
     # Map field names to predicates
     field_predicates = {
         "modified": DCT.modified,
