@@ -1,85 +1,47 @@
-def get_metadata(catalog_url, dataset_id, resource_id, fields, get_api_id = True):
+def get_resource_metadata_field(catalog_url, resource_id, field_uri):
     """
-    Fetches specified metadata fields for both the dataset and a distribution (resource_id).
-    If a field value is a resource URI, parses that resource but only returns its label/name (not the URI).
+    Fetches the value of a specific metadata field for a resource from an RDF catalog.
+
     Args:
-        catalog_url (str): The base URL of the catalog (e.g. "https://zg-demo.entryscape.net/store/1")
-        dataset_id (str): The dataset identifier (e.g. "510")
-        resource_id (str): The distribution/resource identifier (e.g. "512")
-        fields (list): List of metadata field names (e.g. ["modified", "description"])
+        catalog_url (str): The base URL of the catalog (e.g. "https://data.zg.ch/store/1").
+        resource_id (str): The identifier of the resource (e.g. "1461").
+        field_uri (str): The metadata field to fetch. Can be a full URI or a prefixed name (e.g. "dcat:accessURL").
+
     Returns:
-        dict: {"dataset": {...}, "distribution": {...}}
+        str or None: The value of the field as a string, or None if not found.
+
+    Notes:
+        - Supports both full URIs and prefixed names for common vocabularies (dcat, dct, schema, foaf, rdfs).
+        - Loads the RDF metadata for the resource and extracts the first value for the given field.
+        - Raises ValueError if an unknown namespace prefix is provided.
     """
-    from rdflib import Graph, Namespace, URIRef
-    DCAT = Namespace("http://www.w3.org/ns/dcat#")
-    DCT = Namespace("http://purl.org/dc/terms/")
-    SCHEMA = Namespace("http://schema.org/")
-    RDFS = Namespace("http://www.w3.org/2000/01/rdf-schema#")
-    FOAF = Namespace("http://xmlns.com/foaf/0.1/")
+    from rdflib import Graph, URIRef, Namespace
+
+    # Namespace mapping
+    namespaces = {
+        "dcat": "http://www.w3.org/ns/dcat#",
+        "dct": "http://purl.org/dc/terms/",
+        "dcterms": "http://purl.org/dc/terms/",
+        "schema": "http://schema.org/",
+        "foaf": "http://xmlns.com/foaf/0.1/",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#"
+    }
+
+    # Resolve field_uri
+    if ":" in field_uri and not field_uri.startswith("http"):
+        prefix, local = field_uri.split(":", 1)
+        ns_uri = namespaces.get(prefix)
+        if ns_uri:
+            pred = Namespace(ns_uri)[local]
+        else:
+            raise ValueError(f"Unknown namespace prefix: {prefix}")
+    else:
+        pred = URIRef(field_uri)
+
     g = Graph()
-    # Parse dataset RDF
-    dataset_url = f"{catalog_url}/metadata/{dataset_id}"
-    g.parse(dataset_url)
-    # Parse all distribution RDFs
-    distribution_uris = [
-        str(o)
-        for s, p, o in g.triples((None, DCAT.distribution, None))
-    ]
-    for uri in distribution_uris:
-        g.parse(uri.replace("/resource/", "/metadata/"))
-    # Prepare URIs
-    dataset_ref = URIRef(f"{catalog_url}/resource/{dataset_id}")
-    dist_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
-    # Map field names to predicates
-    field_predicates = {
-        "modified": DCT.modified,
-        "description": DCT.description,
-        "title": DCT.title,
-        "issued": DCT.issued,
-        "publisher": DCT.publisher,
-        "format": DCT["format"],
-        "downloadURL": DCAT.downloadURL,
-        "accessURL": DCAT.accessURL,
-        # Add more as needed
-    }
-    def get_label(uri):
-        ref = URIRef(uri)
-        for lbl in g.objects(ref, RDFS.label):
-            return str(lbl)
-        for lbl in g.objects(ref, FOAF.name):
-            return str(lbl)
-        return None
-    def extract(ref):
-        result = {}
-        for field in fields:
-            pred = field_predicates.get(field)
-            if pred:
-                values = [o for o in g.objects(ref, pred)]
-                if values:
-                    if isinstance(values[0], URIRef):
-                        uri = str(values[0])
-                        try:
-                            g.parse(uri)
-                        except Exception:
-                            pass
-                        label = get_label(uri)
-                        if label:
-                            result[field] = label
-                    else:
-                        val = str(values[0])
-                        if val:
-                            result[field] = val
-        return result
-    # --- API detection ---
-    if get_api_id:
-        for s, p, o in g.triples((None, DCT.source, dist_ref)):
-            # s is the distribution that has dcterms:source == dist_ref
-            s_str = str(s)
-            if "/resource/" in s_str:
-                api_id = s_str.split("/resource/")[-1]
-                print(f"API found: {api_id}")
-                
-    return {
-        "dataset": extract(dataset_ref),
-        "distribution": extract(dist_ref)
-    }
+    resource_url = f"{catalog_url}/metadata/{resource_id}"
+    g.parse(resource_url)
+    resource_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
+    for o in g.objects(resource_ref, pred):
+        return str(o)
+    return None
