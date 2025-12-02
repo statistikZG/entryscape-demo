@@ -1,0 +1,32 @@
+<rdf:RDF>
+<dcat:Dataset rdf:about="https://zg-demo.entryscape.net/store/1/resource/5">
+<dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-12-02</dcterms:modified>
+<dcterms:title xml:lang="de">DEMO Grundwasser Messwerte</dcterms:title>
+<dcterms:title xml:lang="en">DEMO Groundwater Measuring Points</dcterms:title>
+<dcterms:description xml:lang="de">
+Messwerte der Grundwasserstände an rund 40 Messstellen im Kanton Zug. Die Werte stehen für kontinuierlich gemessene Grundwasserstände in m ü.M. Die Messungen erfolgen kontinuierlich, die Standorte der Messstellen sind in "Messstellen Standorte" und auf dem kantonalen WebGIS zugmap.ch ersichtlich (siehe Landing-Page). Die kantonalen Grundwassermessstellen sind mit vierstelligen Nummern bezeichnet.
+</dcterms:description>
+<dcterms:publisher rdf:resource="https://zg-demo.entryscape.net/store/1/resource/49"/>
+<dcat:contactPoint rdf:resource="https://zg-demo.entryscape.net/store/1/resource/4"/>
+<dcterms:issued rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2024-12-02</dcterms:issued>
+<dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#string">a9aefad7-6de3-44dc-8196-efa1b0924538@kanton-zug</dcterms:identifier>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/7"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/26"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/28"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/33"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/37"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/39"/>
+<dcat:distribution rdf:resource="https://zg-demo.entryscape.net/store/1/resource/42"/>
+<dcat:keyword xml:lang="de">Grundwasser</dcat:keyword>
+<dcat:keyword xml:lang="de">Messstellen</dcat:keyword>
+<dcat:theme rdf:resource="http://publications.europa.eu/resource/authority/data-theme/ENVI"/>
+<dcat:landingPage rdf:resource="https://zugmap.ch/bmcl/?project=ZugMap.ch&legend=alle%20Themen&rotation=0.00&scale=50619&center=2681814,1224458&layers=9a96e201-ce36-427a-b883-ef6c295ea987"/>
+<dcat:landingPage rdf:resource="https://zg.ch/de/natur-umwelt-tiere/wasser-und-gewaesser/gewaesserqualitaet/grundwasser"/>
+<dcat:landingPage rdf:resource="https://data.zg.ch/apps/portal/dataset/?esc_entry=1063&esc_context=1"/>
+<dcterms:temporal>
+<dcterms:PeriodOfTime rdf:nodeID="a1ed18813bbd4d7aab8dbada932b2b5e24">
+<dcat:startDate rdf:datatype="http://www.w3.org/2001/XMLSchema#date">1998-01-01</dcat:startDate>
+</dcterms:PeriodOfTime>
+</dcterms:temporal>
+</dcat:Dataset>
+</rdf:RDF>

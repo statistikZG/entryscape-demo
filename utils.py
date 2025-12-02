@@ -10,14 +10,16 @@ NAMESPACE = {
     }
 
 
-def get_resource_metadata_field(catalog_url, resource_id, field_uri, graph=None, all_values=False):
+def get_metadata_field(q_name, catalog_url=None, resource_id=None, resource_uri=None, graph=None, all_values=False):
     """
     Fetches one or more values of a specific metadata field for a resource from an RDF catalog.
+    Allows input via resource_id (with catalog_url) or full resource_uri.
 
     Args:
-        catalog_url (str): The base URL of the catalog.
-        resource_id (str): The identifier of the resource.
-        field_uri (str): The metadata field to fetch.
+        q_name (str): The qualified name or full URI of the metadata field.
+        catalog_url (str, optional): The base URL of the catalog.
+        resource_id (str, optional): The identifier of the resource.
+        resource_uri (str, optional): The full URI of the resource.
         graph (rdflib.Graph, optional): Pre-parsed RDF graph to use.
         all_values (bool): If True, return all values as a list.
 
@@ -25,29 +27,42 @@ def get_resource_metadata_field(catalog_url, resource_id, field_uri, graph=None,
         str, list, or None: The value(s) of the field, or None if not found.
     """
     from rdflib import Graph, URIRef, Namespace, Literal
+    import warnings
 
     namespace = NAMESPACE
 
-    if ":" in field_uri and not field_uri.startswith("http"):
-        prefix, local = field_uri.split(":", 1)
+    # Resolve predicate
+    if not q_name:
+        raise ValueError("field_uri must be provided")
+    if ":" in q_name and not q_name.startswith("http"):
+        prefix, local = q_name.split(":", 1)
         ns_uri = namespace.get(prefix)
         if ns_uri:
             pred = Namespace(ns_uri)[local]
         else:
             raise ValueError(f"Unknown namespace prefix: {prefix}")
     else:
-        pred = URIRef(field_uri)
+        pred = URIRef(q_name)
 
+    # Resolve resource reference and metadata URL
+    if resource_id and catalog_url:
+        resource_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
+        metadata_url = f"{catalog_url}/metadata/{resource_id}"
+    elif resource_uri:
+        resource_ref = URIRef(resource_uri)
+        metadata_url = resource_uri.replace("/resource/", "/metadata/")
+    else:
+        raise ValueError("Either resource_id with catalog_url or resource_uri must be provided.")
+
+    # Use provided graph or parse
     g = graph or Graph()
     if not graph:
-        resource_url = f"{catalog_url}/metadata/{resource_id}"
         try:
-            g.parse(resource_url)
+            g.parse(metadata_url)
         except Exception as e:
             warnings.warn(f"Failed to parse RDF: {e}")
             return None
 
-    resource_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
     values = [o.toPython() if isinstance(o, Literal) else str(o) for o in g.objects(resource_ref, pred)]
     if not values:
         return None
@@ -89,8 +104,6 @@ def find_distributions(catalog_url, dataset_id, format_mime=None):
                     distribution_uris.append(dist_str)
         else:
             distribution_uris.append(dist_str)
-    if len(distribution_uris) > 1:
-        warnings.warn(f"More than one distribution found: {distribution_uris}")
     return distribution_uris
 
 def extract_metadata_value(graph, resource_ref, predicate):
@@ -140,13 +153,16 @@ def find_api_endpoints(catalog_url, dataset_id):
             if "swagger" in str(typ).lower():
                 # extract the accessURL value
                 accessURL = extract_metadata_value(dist_graph, dist, DCAT["accessURL"])
+                title = extract_metadata_value(dist_graph, dist, DCTERMS["title"])
                 if accessURL:
-                    api_endpoints.append(accessURL)
+                    api_endpoints.append(
+                        {
+                            "title": title,
+                            "accessURL": accessURL
+                        }
+                        )
                 else:   
                     continue
-
-    if len(api_endpoints) > 1:
-        warnings.warn(f"More than one API resource found: {api_endpoints}")
     return api_endpoints
 
 
