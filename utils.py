@@ -205,3 +205,26 @@ def get_rowstore_data(api_endpoint, query_params=None, fetch_all=False, limit=10
             return results
 
     return all_results
+
+def get_license_label(licennse_uri, language="de", vocbulary_version="20240716"):
+    """
+    Fetches the preferred label of a license from the DCAT-AP CH license vocabulary in the specified language.
+    Args:
+        licennse_uri (str): The URI of the license.
+        language (str): The language code for the preferred label (default is "de").
+        vocbulary_version (str): The version of the vocabulary to use (default is "20240716").
+    Returns:
+        str or None: The preferred label in the specified language, or None if not found.
+    """
+    from rdflib import Graph, Namespace, URIRef
+    g = Graph()
+    g.parse(f"https://www.dcat-ap.ch/vocabulary/licenses/{vocbulary_version}.rdf")
+
+    SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
+    license_uri = URIRef(licennse_uri)
+
+    for label in g.objects(license_uri, SKOS.prefLabel):
+        if label.language == language:
+            # return the label string
+            return label.toPython()
+    return None
