@@ -10,24 +10,24 @@ NAMESPACE = {
     }
 
 
-def get_metadata_field(q_name, catalog_url=None, resource_id=None, resource_uri=None, graph=None, all_values=False):
+def get_metadata_field(q_name, catalog_uri=None, resource_id=None, resource_uri=None, all_values=False, language="de"):
     """
     Fetches one or more values of a specific metadata field for a resource from an RDF catalog.
-    Allows input via resource_id (with catalog_url) or full resource_uri.
+    Allows input via resource_id (with catalog_uri) or full resource_uri.
+    Optionally filters by language (default: "de").
 
     Args:
         q_name (str): The qualified name or full URI of the metadata field.
-        catalog_url (str, optional): The base URL of the catalog.
+        catalog_uri (str, optional): The base URI of the catalog.
         resource_id (str, optional): The identifier of the resource.
         resource_uri (str, optional): The full URI of the resource.
-        graph (rdflib.Graph, optional): Pre-parsed RDF graph to use.
         all_values (bool): If True, return all values as a list.
+        language (str): Language code to filter literals (default "de").
 
     Returns:
         str, list, or None: The value(s) of the field, or None if not found.
     """
     from rdflib import Graph, URIRef, Namespace, Literal
-    import warnings
 
     namespace = NAMESPACE
 
@@ -44,35 +44,35 @@ def get_metadata_field(q_name, catalog_url=None, resource_id=None, resource_uri=
     else:
         pred = URIRef(q_name)
 
-    # Resolve resource reference and metadata URL
-    if resource_id and catalog_url:
-        resource_ref = URIRef(f"{catalog_url}/resource/{resource_id}")
-        metadata_url = f"{catalog_url}/metadata/{resource_id}"
+    # Resolve resource reference and metadata URI
+    if resource_id and catalog_uri:
+        resource_ref = URIRef(f"{catalog_uri}/resource/{resource_id}")
+        metadata_uri = f"{catalog_uri}/metadata/{resource_id}"
     elif resource_uri:
         resource_ref = URIRef(resource_uri)
-        metadata_url = resource_uri.replace("/resource/", "/metadata/")
+        metadata_uri = resource_uri.replace("/resource/", "/metadata/")
     else:
-        raise ValueError("Either resource_id with catalog_url or resource_uri must be provided.")
+        raise ValueError("Either resource_id with catalog_uri or resource_uri must be provided.")
 
-    # Use provided graph or parse
-    g = graph or Graph()
-    if not graph:
-        try:
-            g.parse(metadata_url)
-        except Exception as e:
-            warnings.warn(f"Failed to parse RDF: {e}")
-            return None
 
-    values = [o.toPython() if isinstance(o, Literal) else str(o) for o in g.objects(resource_ref, pred)]
+    g = Graph()
+    g.parse(metadata_uri)
+
+    # Filter by language if Literal
+    values = [
+        o.toPython() if isinstance(o, Literal) else str(o)
+        for o in g.objects(resource_ref, pred)
+        if not isinstance(o, Literal) or o.language == language
+    ]
     if not values:
         return None
     return values if all_values else values[0]
 
-def find_distributions(catalog_url, dataset_id, format_mime=None):
+def find_distributions(catalog_uri, dataset_id, format_mime=None):
     """
     Identifies distributions within a dataset that are in JSON format.
     Args:
-        catalog_url (str): The base URL of the catalog.
+        catalog_uri (str): The base URI of the catalog.
         dataset_id (str): The identifier of the dataset.
         format_mime (str): The MIME type to filter distributions by (E.g., "application/json").
     Returns:
@@ -84,14 +84,14 @@ def find_distributions(catalog_url, dataset_id, format_mime=None):
     DCTERMS = Namespace(NAMESPACE["dcterms"])
 
     g = Graph()
-    dataset_url = f"{catalog_url}/metadata/{dataset_id}"
+    dataset_uri = f"{catalog_uri}/metadata/{dataset_id}"
     try:
-        g.parse(dataset_url)
+        g.parse(dataset_uri)
     except Exception as e:
         warnings.warn(f"Failed to parse RDF: {e}")
         return []
 
-    dataset_ref = URIRef(f"{catalog_url}/resource/{dataset_id}")
+    dataset_ref = URIRef(f"{catalog_uri}/resource/{dataset_id}")
     distribution_uris = []
     for dist in g.objects(dataset_ref, DCAT.distribution):
         dist_graph = Graph()
@@ -122,11 +122,11 @@ def extract_metadata_value(graph, resource_ref, predicate):
     values = [o.toPython() if isinstance(o, Literal) else str(o) for o in graph.objects(resource_ref, predicate)]
     return values[0] if values else None
 
-def find_api_endpoints(catalog_url, dataset_id):
+def find_api_endpoints(catalog_uri, dataset_id):
     """
     Identifies distributions within a dataset that are API endpoints.
     Args:
-        catalog_url (str): The base URL of the catalog.
+        catalog_uri (str): The base URI of the catalog.
         dataset_id (str): The identifier of the dataset.
     Returns:
         list: A list of resource IDs that are API endpoints.
@@ -135,16 +135,17 @@ def find_api_endpoints(catalog_url, dataset_id):
 
     DCAT = Namespace(NAMESPACE["dcat"])
     DCTERMS = Namespace(NAMESPACE["dcterms"])
+    FOAF = Namespace(NAMESPACE["foaf"])
 
     g = Graph()
-    dataset_url = f"{catalog_url}/metadata/{dataset_id}"
+    dataset_uri = f"{catalog_uri}/metadata/{dataset_id}"
     try:
-        g.parse(dataset_url)
+        g.parse(dataset_uri)
     except Exception as e:
         warnings.warn(f"Failed to parse RDF: {e}")
         return []
 
-    dataset_ref = URIRef(f"{catalog_url}/resource/{dataset_id}")
+    dataset_ref = URIRef(f"{catalog_uri}/resource/{dataset_id}")
     api_endpoints = []
     for dist in g.objects(dataset_ref, DCAT.distribution):
         dist_graph = Graph()
@@ -154,11 +155,13 @@ def find_api_endpoints(catalog_url, dataset_id):
                 # extract the accessURL value
                 accessURL = extract_metadata_value(dist_graph, dist, DCAT["accessURL"])
                 title = extract_metadata_value(dist_graph, dist, DCTERMS["title"])
+                page = extract_metadata_value(dist_graph, dist, FOAF["page"])
                 if accessURL:
                     api_endpoints.append(
                         {
                             "title": title,
-                            "accessURL": accessURL
+                            "accessURL": accessURL,
+                            "page": page
                         }
                         )
                 else:   
@@ -170,7 +173,7 @@ def get_rowstore_data(api_endpoint, query_params=None, fetch_all=False, limit=10
     """
     Fetches data from a RowStore API endpoint, with optional pagination handling.
     Args:
-        api_endpoint (str): The URL of the RowStore API endpoint.
+        api_endpoint (str): The dataset_uri of the RowStore API endpoint.
         query_params (dict, optional): Query parameters to include in the request.
         fetch_all (bool): If True, fetches all results by handling pagination.
         limit (int): Number of results per page/request.
